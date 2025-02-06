@@ -10,6 +10,8 @@ router.get('/', function(req, res, next) {
   res.render('index', { title: 'Express' });
 });
 
+/* Thunder client : http://localhost:3000/tickets?departure=Paris&arrival=Lyon&date=2025-02-05%2010:30 */
+
 router.get("/tickets", async (req, res) => {
     try {
         const departure= req.query.departure;
@@ -48,9 +50,13 @@ router.get("/tickets", async (req, res) => {
     }
 });
 
-router.post("/cart", async (req, res) => {
+
+/* Thunder client : http://localhost:3000/cart/:id_ticket 
+// id_client = 67a36e98949d80b00cae89fa (exemple) */
+
+router.post("/cart/:id_ticket", async (req, res) => {
   try {
-      const {id_ticket} = req.body;
+      const id_ticket = req.body.id_ticket;
 
       if (!id_ticket) {
           return res.json({ result: false, error: "L'ID du ticket est obligatoire." });
@@ -66,24 +72,35 @@ router.post("/cart", async (req, res) => {
   }
 });
 
+/* Thunder client : http://localhost:3000/cart */
+
 router.get("/cart", async (req, res) => {
-  try {
-      const cartItems = await Cart.find();
+    try {
+        const cartItems = await Cart.find();  
+        if (cartItems.length == 0) 
+        {
+            return res.json({ result: false, error: "Le panier est vide." });
+        }
+  
+        const ticketIds = cartItems.map(item => item.id_ticket); 
+  
+        const tickets = await Ticket.find({ _id: { $in: ticketIds } });
 
-      if (cartItems.length == 0) 
-      {
-      
-          return res.json({ result: false, error: "Le panier est vide." });
-      }
-
-      const ticketIds = cartItems.map(item => item.id_ticket); 
-      const tickets = await Ticket.find({ _id: { $in: ticketIds } });
-
-      res.json({ result: true, tickets: tickets });
-  } catch (err) {
-      res.json({ result: false, error: "Erreur serveur, veuillez réessayer plus tard." });
+        const updatedTickets = tickets.map(ticket => {
+            const cartItem = cartItems.find(item => item.id_ticket == ticket._id);
+            let ticketObj = ticket.toObject();
+            ticketObj.id_cart = cartItem ? cartItem._id : null;
+            return ticketObj;
+        });
+        
+        res.json({ result: true, tickets: updatedTickets });
+    } catch (err) {
+        res.json({ result: false, error: "Erreur serveur, veuillez réessayer plus tard." });
     }
-});
+  });
+
+/* Thunder client : http://localhost:3000/cart/:id
+// id = 67a36e98949d80b00cae89fa (exemple) */
 
 router.delete("/cart/:id", async (req, res) => {
   try {
@@ -107,7 +124,9 @@ router.delete("/cart/:id", async (req, res) => {
   }
 });
 
-router.post("/cart/purchase", async (req, res) => {
+/* Thunder client : http://localhost:3000/purchase */
+
+router.post("/purchase", async (req, res) => {
   try {
       const cart = await Cart.find();
 
@@ -127,6 +146,8 @@ router.post("/cart/purchase", async (req, res) => {
       res.json({ result: false, error: "Erreur serveur, veuillez réessayer plus tard." });
   }
 });
+
+/* Thunder client : http://localhost:3000/bookings */
 
 router.get("/bookings", async (req, res) => {
   try {
